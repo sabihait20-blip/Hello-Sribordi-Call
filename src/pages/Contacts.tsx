@@ -119,15 +119,22 @@ export const Contacts: React.FC<ContactsProps> = ({ onStartCall, onOpenChat }) =
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       @{p.username}
                     </p>
-                    <span
-                      className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        p.isOnline
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                      }`}
-                    >
-                      {p.isOnline ? 'Online' : 'Offline'}
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          p.isOnline
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {p.isOnline ? 'Online' : 'Offline'}
+                      </span>
+                      {p.secretCode && (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                          {p.secretCode}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

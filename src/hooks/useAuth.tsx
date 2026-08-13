@@ -10,7 +10,7 @@ import {
   sendEmailVerification,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
-import { getUserProfile, createUserProfileDoc, updateUserProfile } from '../services/userService';
+import { getUserProfile, createUserProfileDoc, updateUserProfile, regenerateSecretCode, updateUserPin } from '../services/userService';
 import { UserProfile } from '../types';
 import { usePresence } from './usePresence';
 
@@ -30,6 +30,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfileData: (updates: Partial<UserProfile>) => Promise<void>;
+  regenerateMySecretCode: () => Promise<string | null>;
+  savePinSecurity: (pin: string, enabled: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -140,6 +142,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserProfile((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
+  const regenerateMySecretCode = async (): Promise<string | null> => {
+    if (!currentUser || !userProfile) return null;
+    const newCode = await regenerateSecretCode(currentUser.uid);
+    setUserProfile((prev) => (prev ? { ...prev, secretCode: newCode } : null));
+    return newCode;
+  };
+
+  const savePinSecurity = async (pin: string, enabled: boolean): Promise<void> => {
+    if (!currentUser || !userProfile) return;
+    await updateUserPin(currentUser.uid, pin, enabled);
+    setUserProfile((prev) =>
+      prev ? { ...prev, pinCode: pin, isPinLocked: enabled } : null
+    );
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -153,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         refreshProfile,
         updateProfileData,
+        regenerateMySecretCode,
+        savePinSecurity,
       }}
     >
       {children}

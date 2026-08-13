@@ -7,6 +7,9 @@ import {
   CheckCheck,
   Smile,
   Search,
+  Image as ImageIcon,
+  Loader2,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -16,6 +19,7 @@ import {
   subscribeToConversations,
   markMessagesAsSeen,
 } from '../services/chatService';
+import { uploadToImgBB } from '../services/imgbbService';
 import { ChatMessage, ChatConversation, UserProfile, CallType } from '../types';
 
 interface MessagesProps {
@@ -33,8 +37,10 @@ export const Messages: React.FC<MessagesProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchConvo, setSearchConvo] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Set initial active peer if passed
   useEffect(() => {
@@ -86,6 +92,24 @@ export const Messages: React.FC<MessagesProps> = ({
       await sendMessage(userProfile.uid, activePeer.uid, textToSend, 'text');
     } catch (err) {
       console.warn('Failed to send message:', err);
+    }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userProfile || !activePeer) return;
+
+    setUploadingImage(true);
+    try {
+      const imageUrl = await uploadToImgBB(file);
+      await sendMessage(userProfile.uid, activePeer.uid, imageUrl, 'image');
+    } catch (err) {
+      console.warn('Image upload error:', err);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -260,7 +284,27 @@ export const Messages: React.FC<MessagesProps> = ({
                           : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700/60 rounded-bl-none'
                       }`}
                     >
-                      <p className="leading-relaxed break-words">{m.text}</p>
+                      {m.type === 'image' ? (
+                        <div className="space-y-1">
+                          <a
+                            href={m.text}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block overflow-hidden rounded-xl group relative"
+                          >
+                            <img
+                              src={m.text}
+                              alt="Shared attachment"
+                              className="max-h-60 max-w-full rounded-xl object-cover hover:opacity-95 transition-opacity"
+                            />
+                            <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </div>
+                          </a>
+                        </div>
+                      ) : (
+                        <p className="leading-relaxed break-words">{m.text}</p>
+                      )}
                       <div
                         className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${
                           isMe ? 'text-indigo-200' : 'text-slate-400'
@@ -282,6 +326,14 @@ export const Messages: React.FC<MessagesProps> = ({
                   </div>
                 );
               })
+            )}
+            {uploadingImage && (
+              <div className="flex justify-end">
+                <div className="bg-indigo-600/80 text-white px-4 py-2 rounded-2xl text-xs flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Uploading image via ImgBB...</span>
+                </div>
+              </div>
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -305,6 +357,29 @@ export const Messages: React.FC<MessagesProps> = ({
             onSubmit={handleSend}
             className="p-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 bg-white dark:bg-slate-900"
           >
+            {/* ImgBB Image Attachment Button */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageSelect}
+              disabled={uploadingImage}
+              className="hidden"
+            />
+            <button
+              type="button"
+              title="Upload image via ImgBB"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="p-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-40"
+            >
+              {uploadingImage ? (
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+              ) : (
+                <ImageIcon className="w-4 h-4" />
+              )}
+            </button>
+
             <input
               type="text"
               value={inputText}

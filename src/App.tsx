@@ -4,6 +4,7 @@ import { useCall } from './hooks/useCall';
 import { Sidebar, BottomNav } from './components/layout/Sidebar';
 import { IncomingCallModal } from './components/calls/IncomingCallModal';
 import { ActiveCallScreen } from './components/calls/ActiveCallScreen';
+import { SecretPinLockScreen } from './components/security/SecretPinLockScreen';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
@@ -21,6 +22,14 @@ function MainApp() {
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot'>('login');
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [chatPeer, setChatPeer] = useState<UserProfile | null>(null);
+  const [isPinUnlocked, setIsPinUnlocked] = useState(false);
+
+  // Reset PIN unlock state on auth change
+  useEffect(() => {
+    if (!currentUser) {
+      setIsPinUnlocked(false);
+    }
+  }, [currentUser]);
 
   // Dark mode state
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -84,6 +93,11 @@ function MainApp() {
         onSwitchToForgot={() => setAuthView('forgot')}
       />
     );
+  }
+
+  // App Lock Screen if PIN protection is active
+  if (userProfile?.isPinLocked && userProfile?.pinCode && !isPinUnlocked) {
+    return <SecretPinLockScreen onUnlock={() => setIsPinUnlocked(true)} />;
   }
 
   const handleOpenChat = (peer: UserProfile) => {

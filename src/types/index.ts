@@ -6,6 +6,9 @@ export interface UserProfile {
   photoURL?: string;
   bio?: string;
   phone?: string;
+  secretCode?: string; // e.g. "SEC-8492" or "849201" for direct connection
+  pinCode?: string; // 4-digit secret security code
+  isPinLocked?: boolean;
   isOnline: boolean;
   lastSeen: number | null;
   createdAt: number;
