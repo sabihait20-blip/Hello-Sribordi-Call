@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile representation in Firestore",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "phone": { "type": "string" },
+        "secretCode": { "type": "string" },
+        "pinCode": { "type": "string" },
+        "isPinLocked": { "type": "boolean" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "name", "username", "email", "isOnline"]
+    },
+    "CallSession": {
+      "title": "CallSession",
+      "description": "WebRTC active call signaling session",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string" },
+        "callerId": { "type": "string" },
+        "callerName": { "type": "string" },
+        "callerPhoto": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "receiverPhoto": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "video"] },
+        "status": { "type": "string", "enum": ["ringing", "accepted", "rejected", "ended", "missed", "busy"] },
+        "createdAt": { "type": "number" },
+        "startedAt": { "type": "number" },
+        "endedAt": { "type": "number" }
+      },
+      "required": ["callId", "callerId", "receiverId", "type", "status", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Chat message item",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "image", "call_log"] },
+        "createdAt": { "type": "number" },
+        "seen": { "type": "boolean" }
+      },
+      "required": ["senderId", "receiverId", "text", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Collection of user profiles"
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": "UserProfile",
+      "description": "User saved contacts"
+    },
+    "/calls/{callId}": {
+      "schema": "CallSession",
+      "description": "Real-time call signaling records"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages inside a chat room"
+    }
+  }
+}

@@ -51,7 +51,8 @@ if (typeof window !== 'undefined') {
 export const auth = getAuth(app);
 
 // Firestore instance
-export const db = getFirestore(app);
+const firestoreDbId = (firebaseConfigJson && (firebaseConfigJson as { firestoreDatabaseId?: string }).firestoreDatabaseId) || '(default)';
+export const db = getFirestore(app, firestoreDbId);
 
 // Firebase Storage instance
 export const storage = getStorage(app);

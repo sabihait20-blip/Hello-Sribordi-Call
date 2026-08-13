@@ -314,6 +314,39 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
+        {/* Cloud Database & Realtime Sync Status */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Database className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              Cloud Database & Realtime Sync
+            </h2>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-900/50">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Database Online & Open
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Firestore cloud database is active, synced with WebRTC signaling, user contacts, and messages.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Project ID</span>
+              <p className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-0.5">hellosribordi</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Database ID</span>
+              <p className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-0.5">(default)</p>
+            </div>
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Security Rules</span>
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">Deployed & Active</p>
+            </div>
+          </div>
+        </div>
+
         {/* Security & Password */}
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">

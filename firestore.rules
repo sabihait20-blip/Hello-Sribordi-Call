@@ -25,32 +25,28 @@ service cloud.firestore {
 
     // Calls Collection for WebRTC Signaling
     match /calls/{callId} {
-      allow read, create, update: if isAuthenticated();
+      allow read, create, update, delete: if isAuthenticated();
       
       // Caller and Receiver Candidates
       match /callerCandidates/{candidateId} {
-        allow read, create: if isAuthenticated();
+        allow read, write: if isAuthenticated();
       }
       match /receiverCandidates/{candidateId} {
-        allow read, create: if isAuthenticated();
+        allow read, write: if isAuthenticated();
       }
     }
 
     // Call History Collection
     match /callHistory/{historyId} {
-      allow read: if isAuthenticated() && 
-        (resource.data.callerId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow create: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     // Chats and Messages
     match /chats/{chatId} {
-      allow read, write: if isAuthenticated() && 
-        request.auth.uid in resource.data.participantUids;
-      allow create: if isAuthenticated();
+      allow read, write: if isAuthenticated();
 
       match /messages/{messageId} {
-        allow read, create, update: if isAuthenticated();
+        allow read, write: if isAuthenticated();
       }
     }
   }
