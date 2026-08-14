@@ -41,21 +41,30 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
 }) => {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const [isSpeakerMuted, setIsSpeakerMuted] = React.useState(false);
 
   // Attach local stream to local video tag
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch(() => {});
     }
   }, [localStream]);
 
-  // Attach remote stream to remote video tag
+  // Attach remote stream to remote video/audio tag
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteStream) {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch((e) => console.warn('Remote video playback warning:', e));
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch((e) => console.warn('Remote audio playback warning:', e));
+      }
     }
-  }, [remoteStream]);
+  }, [remoteStream, activeCall?.type]);
 
   if (!activeCall) return null;
 
@@ -83,7 +92,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
           <p className="text-xs text-emerald-400 font-mono font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             {isConnecting
-              ? 'Connecting...'
+              ? 'Connecting WebRTC...'
               : activeCall.status === 'ringing'
               ? 'Ringing...'
               : `Connected • ${formatDuration(callDuration)}`}
@@ -130,7 +139,7 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
                     className="w-20 h-20 rounded-full object-cover"
                   />
                 </div>
-                <p className="text-sm font-medium">Waiting for video stream...</p>
+                <p className="text-sm font-medium">Waiting for remote video stream...</p>
               </div>
             )}
 
@@ -170,8 +179,8 @@ export const ActiveCallScreen: React.FC<ActiveCallScreenProps> = ({
               {isConnecting ? 'Establishing WebRTC Connection...' : formatDuration(callDuration)}
             </p>
 
-            {/* Hidden Audio Element for Remote Stream */}
-            <audio ref={remoteVideoRef as unknown as React.RefObject<HTMLAudioElement>} autoPlay playsInline muted={isSpeakerMuted} />
+            {/* Dedicated Audio Element for Remote Stream */}
+            <audio ref={remoteAudioRef} autoPlay playsInline muted={isSpeakerMuted} />
           </div>
         )}
       </div>

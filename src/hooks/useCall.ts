@@ -32,6 +32,40 @@ export function useCall(currentUserProfile: UserProfile | null) {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const durationTimerRef = useRef<number | null>(null);
   const callUnsubscribesRef = useRef<Array<() => void>>([]);
+  const iceQueueRef = useRef<RTCIceCandidateInit[]>([]);
+
+  // Safely add or queue ICE candidate
+  const handleIncomingCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
+    const pc = peerConnectionRef.current;
+    if (!pc) return;
+
+    if (pc.remoteDescription && pc.remoteDescription.type) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn('Error adding ICE candidate directly:', err);
+      }
+    } else {
+      iceQueueRef.current.push(candidate);
+    }
+  }, []);
+
+  // Flush queued candidates once remote description is ready
+  const flushQueuedCandidates = useCallback(async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc || !pc.remoteDescription) return;
+
+    while (iceQueueRef.current.length > 0) {
+      const cand = iceQueueRef.current.shift();
+      if (cand) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (err) {
+          console.warn('Error applying queued ICE candidate:', err);
+        }
+      }
+    }
+  }, []);
 
   // Cleanup WebRTC & Streams
   const cleanupCall = useCallback(() => {
@@ -42,8 +76,17 @@ export function useCall(currentUserProfile: UserProfile | null) {
       durationTimerRef.current = null;
     }
 
+    // Clear candidate queue
+    iceQueueRef.current = [];
+
     // Unsubscribe Firestore listeners
-    callUnsubscribesRef.current.forEach((unsub) => unsub());
+    callUnsubscribesRef.current.forEach((unsub) => {
+      try {
+        unsub();
+      } catch (e) {
+        console.warn('Error unsubscribing call listener:', e);
+      }
+    });
     callUnsubscribesRef.current = [];
 
     // Stop streams
@@ -59,7 +102,11 @@ export function useCall(currentUserProfile: UserProfile | null) {
 
     // Close PC
     if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
+      try {
+        peerConnectionRef.current.close();
+      } catch (e) {
+        console.warn('Error closing peer connection:', e);
+      }
       peerConnectionRef.current = null;
     }
 
@@ -95,6 +142,7 @@ export function useCall(currentUserProfile: UserProfile | null) {
     if (!currentUserProfile) return;
     setCallError(null);
     setIsConnecting(true);
+    iceQueueRef.current = [];
 
     try {
       // 1. Get media
@@ -112,12 +160,32 @@ export function useCall(currentUserProfile: UserProfile | null) {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       // Handle remote tracks
-      const remote = new MediaStream();
-      setRemoteStream(remote);
       pc.ontrack = (event) => {
-        event.streams[0]?.getTracks().forEach((track) => {
-          remote.addTrack(track);
-        });
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        } else if (event.track) {
+          setRemoteStream((prev) => {
+            const newStream = prev || new MediaStream();
+            newStream.addTrack(event.track);
+            return newStream;
+          });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        if (state === 'connected' || state === 'completed') {
+          setIsConnecting(false);
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        if (state === 'connected') {
+          setIsConnecting(false);
+        } else if (state === 'failed') {
+          setCallError('Call connection failed. Please try again.');
+        }
       };
 
       // Create offer
@@ -171,6 +239,7 @@ export function useCall(currentUserProfile: UserProfile | null) {
           soundEffects.stopRingtone();
           setIsConnecting(false);
           await pc.setRemoteDescription(new RTCSessionDescription(updatedSession.answer));
+          await flushQueuedCandidates();
 
           // Start timer
           if (!durationTimerRef.current) {
@@ -191,9 +260,7 @@ export function useCall(currentUserProfile: UserProfile | null) {
 
       // Listen for receiver candidates
       const unsubCandidates = listenToPeerIceCandidates(callId, 'receiver', (candidate) => {
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) =>
-          console.warn('Error adding ICE candidate:', err)
-        );
+        handleIncomingCandidate(candidate);
       });
 
       callUnsubscribesRef.current.push(unsubSession, unsubCandidates);
@@ -211,6 +278,7 @@ export function useCall(currentUserProfile: UserProfile | null) {
     soundEffects.stopRingtone();
     setCallError(null);
     setIsConnecting(true);
+    iceQueueRef.current = [];
 
     const callToAnswer = incomingCall;
     setIncomingCall(null);
@@ -231,17 +299,38 @@ export function useCall(currentUserProfile: UserProfile | null) {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       // Handle remote track
-      const remote = new MediaStream();
-      setRemoteStream(remote);
       pc.ontrack = (event) => {
-        event.streams[0]?.getTracks().forEach((track) => {
-          remote.addTrack(track);
-        });
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        } else if (event.track) {
+          setRemoteStream((prev) => {
+            const newStream = prev || new MediaStream();
+            newStream.addTrack(event.track);
+            return newStream;
+          });
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        if (state === 'connected' || state === 'completed') {
+          setIsConnecting(false);
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        if (state === 'connected') {
+          setIsConnecting(false);
+        } else if (state === 'failed') {
+          setCallError('WebRTC connection failed.');
+        }
       };
 
       // Set Remote Description (Offer)
       if (callToAnswer.offer) {
         await pc.setRemoteDescription(new RTCSessionDescription(callToAnswer.offer));
+        await flushQueuedCandidates();
       }
 
       // Create Answer
@@ -275,9 +364,7 @@ export function useCall(currentUserProfile: UserProfile | null) {
 
       // Listen for caller candidates
       const unsubCandidates = listenToPeerIceCandidates(callToAnswer.callId, 'caller', (candidate) => {
-        pc.addIceCandidate(new RTCIceCandidate(candidate)).catch((err) =>
-          console.warn('Error adding ICE candidate:', err)
-        );
+        handleIncomingCandidate(candidate);
       });
 
       callUnsubscribesRef.current.push(unsubSession, unsubCandidates);

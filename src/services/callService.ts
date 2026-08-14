@@ -16,7 +16,7 @@ import { db } from '../lib/firebase';
 import { CallSession, CallType, CallStatus, CallHistoryRecord } from '../types';
 
 /**
- * Check if a user is currently engaged in an active call
+ * Check if a user is currently engaged in an active call (within last 60s)
  */
 export async function isUserOnActiveCall(uid: string): Promise<boolean> {
   try {
@@ -25,7 +25,16 @@ export async function isUserOnActiveCall(uid: string): Promise<boolean> {
     const q2 = query(callsRef, where('receiverId', '==', uid), where('status', 'in', ['ringing', 'accepted']));
 
     const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-    return !snap1.empty || !snap2.empty;
+    const now = Date.now();
+    // Only consider calls active if created/accepted within the last 2 minutes
+    const isRecentActive = (docData: Record<string, unknown>) => {
+      const time = (docData.acceptedAt as number) || (docData.createdAt as number) || 0;
+      return now - time < 120000;
+    };
+
+    const hasActive1 = snap1.docs.some((d) => isRecentActive(d.data()));
+    const hasActive2 = snap2.docs.some((d) => isRecentActive(d.data()));
+    return hasActive1 || hasActive2;
   } catch (err) {
     console.warn('Error checking active call state:', err);
     return false;
@@ -193,10 +202,17 @@ export function listenToIncomingCalls(
   );
 
   return onSnapshot(q, (snapshot) => {
+    const now = Date.now();
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added') {
         const data = change.doc.data() as CallSession;
-        onIncomingCall(data);
+        // Only trigger if call is fresh (within 45 seconds)
+        if (data.createdAt && now - data.createdAt < 45000) {
+          onIncomingCall(data);
+        } else if (data.createdAt && now - data.createdAt >= 45000) {
+          // Auto-mark expired call
+          updateDoc(change.doc.ref, { status: 'missed', endedAt: now }).catch(() => {});
+        }
       }
     });
   });
