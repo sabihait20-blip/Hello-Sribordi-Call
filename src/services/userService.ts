@@ -15,16 +15,23 @@ import { UserProfile } from '../types';
 import { uploadToImgBB } from './imgbbService';
 
 /**
- * Generate a random 6-character active secret code (e.g. "SEC-7821" or "849201")
+ * Generate a permanent, unique, active secret calling code (e.g. "SEC-K7M9-4821")
  */
 export function generateSecretCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let randomPart = '';
+  let randomAlpha = '';
   for (let i = 0; i < 4; i++) {
-    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+    randomAlpha += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   const numericPart = Math.floor(1000 + Math.random() * 9000);
-  return `SEC-${randomPart}${numericPart}`;
+  return `SEC-${randomAlpha}-${numericPart}`;
+}
+
+/**
+ * Normalize code for comparison (e.g. "sec-k7m9-4821" -> "SECK7M94821")
+ */
+function normalizeCode(code: string): string {
+  return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 export async function createUserProfileDoc(
@@ -90,6 +97,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 export async function getUserBySecretCode(secretCode: string): Promise<UserProfile | null> {
   if (!secretCode || !secretCode.trim()) return null;
   const codeClean = secretCode.trim().toUpperCase();
+  const normalizedTarget = normalizeCode(secretCode);
   const usersRef = collection(db, 'users');
 
   try {
@@ -101,13 +109,19 @@ export async function getUserBySecretCode(secretCode: string): Promise<UserProfi
     console.warn('Query by secretCode error:', err);
   }
 
-  // Fallback search in memory in case of indexing delay
+  // Fallback search with normalization in memory
   try {
-    const allSnap = await getDocs(query(usersRef, limit(40)));
+    const allSnap = await getDocs(query(usersRef, limit(100)));
     for (const d of allSnap.docs) {
       const u = d.data() as UserProfile;
-      if (u.secretCode && u.secretCode.toUpperCase() === codeClean) {
-        return u;
+      if (u.secretCode) {
+        if (
+          u.secretCode.toUpperCase() === codeClean ||
+          normalizeCode(u.secretCode) === normalizedTarget ||
+          normalizeCode(u.secretCode).endsWith(normalizedTarget)
+        ) {
+          return u;
+        }
       }
     }
   } catch (err) {
@@ -164,20 +178,24 @@ export async function searchUsers(searchTerm: string, currentUid: string): Promi
   if (!searchTerm || !searchTerm.trim()) return [];
   const term = searchTerm.toLowerCase().trim();
   const termUpper = searchTerm.toUpperCase().trim();
+  const normalizedSearch = normalizeCode(searchTerm);
 
   const usersRef = collection(db, 'users');
   const results: UserProfile[] = [];
   const addedUids = new Set<string>();
 
   // Fetch users and filter by term in memory or prefix queries
-  const qSnap = await getDocs(query(usersRef, limit(30)));
+  const qSnap = await getDocs(query(usersRef, limit(100)));
   qSnap.forEach((docSnap) => {
     const data = docSnap.data() as UserProfile;
     if (data.uid !== currentUid && !addedUids.has(data.uid)) {
-      const matchName = data.name.toLowerCase().includes(term);
-      const matchUsername = data.username.toLowerCase().includes(term);
-      const matchEmail = data.email.toLowerCase().includes(term);
-      const matchCode = data.secretCode ? data.secretCode.toUpperCase().includes(termUpper) : false;
+      const matchName = data.name ? data.name.toLowerCase().includes(term) : false;
+      const matchUsername = data.username ? data.username.toLowerCase().includes(term) : false;
+      const matchEmail = data.email ? data.email.toLowerCase().includes(term) : false;
+      const matchCode = data.secretCode
+        ? data.secretCode.toUpperCase().includes(termUpper) ||
+          (normalizedSearch.length >= 3 && normalizeCode(data.secretCode).includes(normalizedSearch))
+        : false;
 
       if (matchName || matchUsername || matchEmail || matchCode) {
         results.push(data);

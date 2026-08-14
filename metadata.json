@@ -1,6 +1,6 @@
 {
   "name": "Firebase Calling & Messaging App",
-  "description": "Real-time audio/video calling with WebRTC, Firestore signaling, authentication, presence, contacts, and instant messaging.",
+  "description": "Real-time audio/video calling with WebRTC, Firestore signaling, permanent unique secret codes for direct calling/messaging, user presence, contacts, and instant messaging.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

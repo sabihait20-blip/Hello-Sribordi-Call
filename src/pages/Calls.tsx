@@ -7,10 +7,14 @@ import {
   ArrowDownLeft,
   Clock,
   Filter,
+  KeyRound,
+  Loader2,
+  AlertCircle,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { subscribeToCallHistory } from '../services/callService';
-import { getUserProfile } from '../services/userService';
+import { getUserProfile, getUserBySecretCode } from '../services/userService';
 import { CallHistoryRecord, UserProfile, CallType } from '../types';
 
 interface CallsProps {
@@ -22,6 +26,11 @@ export const Calls: React.FC<CallsProps> = ({ onStartCall }) => {
   const [history, setHistory] = useState<CallHistoryRecord[]>([]);
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing' | 'missed' | 'audio' | 'video'>('all');
 
+  // Quick Dial by Secret Code
+  const [dialCode, setDialCode] = useState('');
+  const [dialing, setDialing] = useState(false);
+  const [dialError, setDialError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!userProfile) return;
     const unsub = subscribeToCallHistory(userProfile.uid, (data) => {
@@ -29,6 +38,27 @@ export const Calls: React.FC<CallsProps> = ({ onStartCall }) => {
     });
     return () => unsub();
   }, [userProfile]);
+
+  const handleDial = async (type: CallType) => {
+    if (!dialCode.trim()) return;
+    setDialing(true);
+    setDialError(null);
+
+    try {
+      const peer = await getUserBySecretCode(dialCode);
+      if (!peer) {
+        setDialError(`No user found with Secret Code "${dialCode.toUpperCase()}"`);
+      } else if (peer.uid === userProfile?.uid) {
+        setDialError('You cannot call your own Secret Code.');
+      } else {
+        onStartCall(peer, type);
+      }
+    } catch (err) {
+      setDialError('Failed to establish call connection. Please try again.');
+    } finally {
+      setDialing(false);
+    }
+  };
 
   const filteredHistory = history.filter((item) => {
     if (filter === 'all') return true;
@@ -60,10 +90,10 @@ export const Calls: React.FC<CallsProps> = ({ onStartCall }) => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
             <PhoneCall className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-            Call History
+            Calls & Direct Dialer
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Logs of all your audio and video calls
+            Logs of your calls and instant direct dialing by Permanent Secret Code
           </p>
         </div>
 
@@ -83,6 +113,60 @@ export const Calls: React.FC<CallsProps> = ({ onStartCall }) => {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Secret Code Quick Dialer */}
+      <div className="p-5 rounded-3xl bg-indigo-50/60 dark:bg-slate-900/80 border border-indigo-100 dark:border-slate-800 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+            Direct Dial by Permanent Secret Code
+          </h2>
+          <span className="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+            Enter Secret Code & Choose Call Type
+          </span>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <KeyRound className="w-4 h-4 absolute left-3.5 top-3 text-indigo-500" />
+            <input
+              type="text"
+              value={dialCode}
+              onChange={(e) => {
+                setDialCode(e.target.value.toUpperCase());
+                setDialError(null);
+              }}
+              placeholder="e.g. SEC-ABCD-1234..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-indigo-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-indigo-600 placeholder:normal-case placeholder:font-sans placeholder:font-normal"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleDial('audio')}
+              disabled={dialing || !dialCode.trim()}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all"
+            >
+              {dialing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4" />}
+              <span>Audio Call</span>
+            </button>
+            <button
+              onClick={() => handleDial('video')}
+              disabled={dialing || !dialCode.trim()}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all"
+            >
+              {dialing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+              <span>Video Call</span>
+            </button>
+          </div>
+        </div>
+
+        {dialError && (
+          <div className="p-3 rounded-xl text-xs flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{dialError}</span>
+          </div>
+        )}
       </div>
 
       {filteredHistory.length === 0 ? (

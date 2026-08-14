@@ -15,6 +15,7 @@ import {
   Copy,
   RefreshCw,
   Check,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
