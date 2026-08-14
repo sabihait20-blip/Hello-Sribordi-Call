@@ -64,17 +64,25 @@ export async function createUserProfileDoc(
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   if (!uid) return null;
-  const userRef = doc(db, 'users', uid);
-  const snap = await getDoc(userRef);
-  if (snap.exists()) {
-    const data = snap.data() as UserProfile;
-    // Auto-generate and activate secret code if missing
-    if (!data.secretCode) {
-      const code = generateSecretCode();
-      await updateDoc(userRef, { secretCode: code });
-      data.secretCode = code;
+  try {
+    const userRef = doc(db, 'users', uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists()) {
+      const data = snap.data() as UserProfile;
+      // Auto-generate and activate secret code if missing
+      if (!data.secretCode) {
+        const code = generateSecretCode();
+        try {
+          await updateDoc(userRef, { secretCode: code });
+        } catch {
+          // Ignore non-fatal update error
+        }
+        data.secretCode = code;
+      }
+      return data;
     }
-    return data;
+  } catch (err) {
+    console.warn('Error fetching profile for uid:', uid, err);
   }
   return null;
 }

@@ -15,6 +15,27 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const formatRegisterError = (err: unknown): string => {
+    if (!err) return 'An unexpected error occurred.';
+    const error = err as { code?: string; message?: string };
+    const code = error.code || '';
+    
+    switch (code) {
+      case 'auth/email-already-in-use':
+        return 'This email address is already registered. Please sign in instead.';
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/weak-password':
+        return 'The password is too weak. Please use at least 6 characters with letters and numbers.';
+      case 'auth/operation-not-allowed':
+        return 'Email/Password sign-up is currently not enabled in Firebase Authentication.';
+      case 'auth/network-request-failed':
+        return 'Network connection failed. Please verify your internet connection.';
+      default:
+        return error.message || 'Registration failed. Please try again.';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -33,8 +54,7 @@ export const Register: React.FC<RegisterProps> = ({ onSwitchToLogin }) => {
     try {
       await registerWithEmail(name, username, email, password);
     } catch (err: unknown) {
-      const error = err as Error;
-      setError(error.message || 'Registration failed.');
+      setError(formatRegisterError(err));
     } finally {
       setLoading(false);
     }

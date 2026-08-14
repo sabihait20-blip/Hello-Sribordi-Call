@@ -17,6 +17,33 @@ export const Login: React.FC<LoginProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const formatAuthError = (err: unknown): string => {
+    if (!err) return 'An unexpected error occurred.';
+    const error = err as { code?: string; message?: string };
+    const code = error.code || '';
+    
+    switch (code) {
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password. If you do not have an account yet, please click "Create account" below.';
+      case 'auth/invalid-email':
+        return 'The email address format is invalid.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled.';
+      case 'auth/too-many-requests':
+        return 'Access temporarily disabled due to many failed attempts. Please try again later or reset password.';
+      case 'auth/network-request-failed':
+        return 'Network connection issue. Please check your internet connection.';
+      case 'auth/popup-closed-by-user':
+        return 'Google Sign-in was cancelled.';
+      case 'auth/operation-not-allowed':
+        return 'Email/Password or Google provider is not enabled in Firebase Authentication.';
+      default:
+        return error.message || 'Failed to sign in. Please verify your credentials.';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -29,8 +56,7 @@ export const Login: React.FC<LoginProps> = ({
     try {
       await loginWithEmail(email, password);
     } catch (err: unknown) {
-      const error = err as Error;
-      setError(error.message || 'Failed to sign in. Please check your credentials.');
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -42,8 +68,7 @@ export const Login: React.FC<LoginProps> = ({
     try {
       await loginWithGoogle();
     } catch (err: unknown) {
-      const error = err as Error;
-      setError(error.message || 'Google sign in failed.');
+      setError(formatAuthError(err));
     } finally {
       setLoading(false);
     }
